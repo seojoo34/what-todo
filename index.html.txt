@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>나의 할 일</title>
+    <link rel="manifest" href="manifest.json">
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 20px; background: #f4f4f9; }
+        input { padding: 10px; width: 70%; border: 1px solid #ddd; border-radius: 5px; }
+        button { padding: 10px; background: #28a745; color: white; border: none; border-radius: 5px; }
+        ul { list-style: none; padding: 0; margin-top: 20px; }
+        li { background: white; margin: 5px 0; padding: 10px; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; justify-content: space-between; }
+    </style>
+</head>
+<body>
+    <h2>📝 오늘의 할 일</h2>
+    <input type="text" id="taskInput" placeholder="할 일을 입력하세요">
+    <button onclick="addTask()">추가</button>
+    <ul id="taskList"></ul>
+
+    <script>
+        // 할 일 추가 함수
+        function addTask() {
+            const input = document.getElementById('taskInput');
+            if (input.value === '') return;
+            const li = document.createElement('li');
+            li.innerHTML = `${input.value} <button onclick="this.parentElement.remove()">X</button>`;
+            document.getElementById('taskList').appendChild(li);
+            input.value = '';
+        }
+
+        // PWA를 위한 서비스 워커 등록
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js');
+        }
+    </script>
+</body>
+</html>
