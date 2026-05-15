@@ -22,26 +22,35 @@
 
         /* 섹션 공통 (먼슬리, 위클리) */
         .section-box { border-radius: 16px; padding: 18px; margin-bottom: 16px; }
-        .section-header { display: flex; justify-content: space-between; align-items: center; font-weight: 800; font-size: 15px; margin-bottom: 15px; }
-        .add-btn { background: rgba(255,255,255,0.4); border: none; border-radius: 50%; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; color: inherit; font-size: 16px; margin-left: 6px; }
+        .section-header { font-weight: 800; font-size: 15px; margin-bottom: 15px; }
         
         /* 먼슬리 투두 (주황색) */
         .monthly { background-color: #FFC09F; color: #4A2B1D; }
-        .monthly .todo-item::before { content: '−'; display: inline-block; width: 20px; height: 20px; background: white; border-radius: 50%; text-align: center; line-height: 18px; color: #FFC09F; font-weight: bold; margin-right: 10px; }
-        
+        .monthly .checkbox { border-color: rgba(74, 43, 29, 0.3); }
+        .monthly .todo-item.completed .checkbox { background-color: rgba(74, 43, 29, 0.5); border-color: transparent; }
+        .monthly .add-item { color: rgba(74, 43, 29, 0.6); }
+
         /* 위클리 투두 (회색) */
         .weekly { background-color: #F4F5F7; color: #333; }
-        .weekly .add-btn { background: #E2E4E8; color: #555; }
-        .weekly .todo-item::before { content: '−'; display: inline-block; width: 20px; height: 20px; background: #DFE1E5; border-radius: 50%; text-align: center; line-height: 18px; color: white; margin-right: 10px; }
-
-        /* 데일리 투두 */
-        .daily-title { font-size: 15px; font-weight: 800; margin: 30px 0 15px 0; display: flex; align-items: center; }
-        .daily-title .add-btn { background: #F0F2F5; color: #888; }
-        .daily-list .todo-item { display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid #F0F2F5; font-size: 14px; }
-        .daily-list .todo-item::before { content: '⋯'; display: inline-block; width: 22px; height: 22px; background: #F4F5F7; border-radius: 50%; text-align: center; line-height: 18px; color: #AAA; margin-right: 12px; font-size: 10px;}
         
-        .todo-item { display: flex; align-items: center; margin-bottom: 10px; font-size: 14px; cursor: pointer; }
-        .todo-item.completed { text-decoration: line-through; opacity: 0.5; }
+        /* 데일리 투두 */
+        .daily-title { font-size: 15px; font-weight: 800; margin: 30px 0 15px 0; }
+        .daily-list .todo-item { border-bottom: 1px solid #F0F2F5; padding-bottom: 12px; }
+        
+        /* 체크박스 및 리스트 아이템 디자인 */
+        .todo-item { display: flex; align-items: flex-start; margin-bottom: 12px; font-size: 15px; cursor: pointer; line-height: 22px; }
+        
+        .checkbox { width: 20px; height: 20px; border: 1.5px solid #ccc; border-radius: 50%; margin-right: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: 0.2s; margin-top: 1px; }
+        
+        /* 완료되었을 때 모양 */
+        .todo-item.completed { opacity: 0.5; }
+        .todo-item.completed .checkbox { background-color: #ccc; border-color: transparent; }
+        .todo-item.completed .checkbox::after { content: '✓'; color: white; font-size: 12px; font-weight: bold; }
+        
+        /* 항목 추가 버튼 (투명한 체크박스 자리 차지) */
+        .add-item { color: #999; cursor: pointer; font-size: 14px; margin-top: 5px; }
+        .empty-space { width: 20px; margin-right: 12px; flex-shrink: 0; }
+
     </style>
 </head>
 <body>
@@ -51,30 +60,23 @@
         <div class="today-badge">Today</div>
     </div>
     
-    <div class="week-calendar" id="calendar">
-        </div>
+    <div class="week-calendar" id="calendar"></div>
 
     <div class="section-box monthly">
-        <div class="section-header">
-            <div>먼슬리 투두 <button class="add-btn" onclick="addTodo('monthly')">+</button></div>
-        </div>
+        <div class="section-header">먼슬리 투두</div>
         <ul id="monthlyList"></ul>
     </div>
 
     <div class="section-box weekly">
-        <div class="section-header">
-            <div>위클리 투두 <button class="add-btn" onclick="addTodo('weekly')">+</button></div>
-        </div>
+        <div class="section-header">위클리 투두</div>
         <ul id="weeklyList"></ul>
     </div>
 
-    <div class="daily-title">
-        데일리 투두 <button class="add-btn" onclick="addTodo('daily')">+</button>
-    </div>
+    <div class="daily-title">데일리 투두</div>
     <ul class="daily-list" id="dailyList"></ul>
 
     <script>
-        // 데이터 저장소 (앱 껐다 켜도 유지됨)
+        // 데이터 저장소
         let todos = JSON.parse(localStorage.getItem('myTodos')) || { monthly: [], weekly: [], daily: {} };
         let selectedDate = new Date().toISOString().split('T')[0];
 
@@ -100,24 +102,37 @@
             }
         }
 
-        // 2. 화면에 리스트 그리기
+        // 2. 리스트 그리기 함수 (체크박스 + 추가 버튼 포함)
+        function generateListHTML(type, listData) {
+            let html = listData.map((t, i) => `
+                <li class="todo-item ${t.done ? 'completed' : ''}" onclick="toggleTodo('${type}', ${i})">
+                    <div class="checkbox"></div>
+                    <div>${t.text}</div>
+                </li>
+            `).join('');
+            
+            // 각 리스트의 맨 마지막에 '항목 추가' 버튼 삽입
+            html += `
+                <li class="todo-item add-item" onclick="addTodo('${type}')">
+                    <div class="empty-space"></div>
+                    <div>항목 추가...</div>
+                </li>
+            `;
+            return html;
+        }
+
+        // 3. 화면 업데이트
         function renderAll() {
             renderCalendar();
             
-            // 먼슬리 & 위클리 그리기
-            document.getElementById('monthlyList').innerHTML = todos.monthly.map((t, i) => 
-                `<li class="todo-item ${t.done?'completed':''}" onclick="toggleTodo('monthly', ${i})">${t.text}</li>`).join('');
-                
-            document.getElementById('weeklyList').innerHTML = todos.weekly.map((t, i) => 
-                `<li class="todo-item ${t.done?'completed':''}" onclick="toggleTodo('weekly', ${i})">${t.text}</li>`).join('');
+            document.getElementById('monthlyList').innerHTML = generateListHTML('monthly', todos.monthly);
+            document.getElementById('weeklyList').innerHTML = generateListHTML('weekly', todos.weekly);
             
-            // 데일리 그리기 (선택된 날짜 기준)
             let dailyTodos = todos.daily[selectedDate] || [];
-            document.getElementById('dailyList').innerHTML = dailyTodos.map((t, i) => 
-                `<li class="todo-item ${t.done?'completed':''}" onclick="toggleTodo('daily', ${i})">${t.text}</li>`).join('');
+            document.getElementById('dailyList').innerHTML = generateListHTML('daily', dailyTodos);
         }
 
-        // 3. 할 일 추가하기 (+ 버튼 누를 때)
+        // 4. 할 일 추가
         function addTodo(type) {
             let text = prompt("새로운 할 일을 입력하세요:");
             if(!text) return;
@@ -131,7 +146,7 @@
             saveAndRender();
         }
 
-        // 4. 할 일 완료 표시하기 (클릭 시)
+        // 5. 할 일 완료 체크 (동그라미 채우기)
         function toggleTodo(type, index) {
             if(type === 'daily') {
                 todos.daily[selectedDate][index].done = !todos.daily[selectedDate][index].done;
@@ -146,7 +161,7 @@
             renderAll();
         }
 
-        // 처음 실행 시 화면 그리기
+        // 앱 시작
         renderAll();
     </script>
 </body>
