@@ -6,34 +6,148 @@
     <title>나의 할 일</title>
     <link rel="manifest" href="manifest.json">
     <style>
-        body { font-family: sans-serif; text-align: center; padding: 20px; background: #f4f4f9; }
-        input { padding: 10px; width: 70%; border: 1px solid #ddd; border-radius: 5px; }
-        button { padding: 10px; background: #28a745; color: white; border: none; border-radius: 5px; }
-        ul { list-style: none; padding: 0; margin-top: 20px; }
-        li { background: white; margin: 5px 0; padding: 10px; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; justify-content: space-between; }
+        /* 기본 설정 */
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; padding: 20px; background-color: #ffffff; color: #333; }
+        ul { list-style: none; padding: 0; margin: 0; }
+        
+        /* 상단 헤더 & 달력 */
+        .header { display: flex; align-items: center; justify-content: space-between; font-size: 18px; font-weight: 800; margin-bottom: 20px; }
+        .today-badge { font-size: 12px; background: #F0F2F5; padding: 4px 12px; border-radius: 15px; color: #666; font-weight: 600; }
+        
+        .week-calendar { display: flex; justify-content: space-between; margin-bottom: 25px; }
+        .day-col { display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; cursor: pointer; color: #666; }
+        .day-col .date { width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 50%; }
+        .day-col.selected { color: #FF9B6A; }
+        .day-col.selected .date { background-color: #FF9B6A; color: white; font-weight: bold; }
+
+        /* 섹션 공통 (먼슬리, 위클리) */
+        .section-box { border-radius: 16px; padding: 18px; margin-bottom: 16px; }
+        .section-header { display: flex; justify-content: space-between; align-items: center; font-weight: 800; font-size: 15px; margin-bottom: 15px; }
+        .add-btn { background: rgba(255,255,255,0.4); border: none; border-radius: 50%; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; color: inherit; font-size: 16px; margin-left: 6px; }
+        
+        /* 먼슬리 투두 (주황색) */
+        .monthly { background-color: #FFC09F; color: #4A2B1D; }
+        .monthly .todo-item::before { content: '−'; display: inline-block; width: 20px; height: 20px; background: white; border-radius: 50%; text-align: center; line-height: 18px; color: #FFC09F; font-weight: bold; margin-right: 10px; }
+        
+        /* 위클리 투두 (회색) */
+        .weekly { background-color: #F4F5F7; color: #333; }
+        .weekly .add-btn { background: #E2E4E8; color: #555; }
+        .weekly .todo-item::before { content: '−'; display: inline-block; width: 20px; height: 20px; background: #DFE1E5; border-radius: 50%; text-align: center; line-height: 18px; color: white; margin-right: 10px; }
+
+        /* 데일리 투두 */
+        .daily-title { font-size: 15px; font-weight: 800; margin: 30px 0 15px 0; display: flex; align-items: center; }
+        .daily-title .add-btn { background: #F0F2F5; color: #888; }
+        .daily-list .todo-item { display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid #F0F2F5; font-size: 14px; }
+        .daily-list .todo-item::before { content: '⋯'; display: inline-block; width: 22px; height: 22px; background: #F4F5F7; border-radius: 50%; text-align: center; line-height: 18px; color: #AAA; margin-right: 12px; font-size: 10px;}
+        
+        .todo-item { display: flex; align-items: center; margin-bottom: 10px; font-size: 14px; cursor: pointer; }
+        .todo-item.completed { text-decoration: line-through; opacity: 0.5; }
     </style>
 </head>
 <body>
-    <h2>📝 오늘의 할 일</h2>
-    <input type="text" id="taskInput" placeholder="할 일을 입력하세요">
-    <button onclick="addTask()">추가</button>
-    <ul id="taskList"></ul>
+
+    <div class="header">
+        <div id="monthYearText">5월 2026 &lsaquo; &rsaquo;</div>
+        <div class="today-badge">Today</div>
+    </div>
+    
+    <div class="week-calendar" id="calendar">
+        </div>
+
+    <div class="section-box monthly">
+        <div class="section-header">
+            <div>먼슬리 투두 <button class="add-btn" onclick="addTodo('monthly')">+</button></div>
+        </div>
+        <ul id="monthlyList"></ul>
+    </div>
+
+    <div class="section-box weekly">
+        <div class="section-header">
+            <div>위클리 투두 <button class="add-btn" onclick="addTodo('weekly')">+</button></div>
+        </div>
+        <ul id="weeklyList"></ul>
+    </div>
+
+    <div class="daily-title">
+        데일리 투두 <button class="add-btn" onclick="addTodo('daily')">+</button>
+    </div>
+    <ul class="daily-list" id="dailyList"></ul>
 
     <script>
-        // 할 일 추가 함수
-        function addTask() {
-            const input = document.getElementById('taskInput');
-            if (input.value === '') return;
-            const li = document.createElement('li');
-            li.innerHTML = `${input.value} <button onclick="this.parentElement.remove()">X</button>`;
-            document.getElementById('taskList').appendChild(li);
-            input.value = '';
+        // 데이터 저장소 (앱 껐다 켜도 유지됨)
+        let todos = JSON.parse(localStorage.getItem('myTodos')) || { monthly: [], weekly: [], daily: {} };
+        let selectedDate = new Date().toISOString().split('T')[0];
+
+        // 1. 주간 캘린더 그리기
+        function renderCalendar() {
+            const calendar = document.getElementById('calendar');
+            calendar.innerHTML = '';
+            const today = new Date();
+            const firstDay = new Date(today.setDate(today.getDate() - today.getDay())); // 이번주 일요일
+            
+            const days = ['일', '월', '화', '수', '목', '금', '토'];
+            
+            for(let i=0; i<7; i++) {
+                let d = new Date(firstDay);
+                d.setDate(d.getDate() + i);
+                let dateStr = d.toISOString().split('T')[0];
+                
+                let col = document.createElement('div');
+                col.className = `day-col ${dateStr === selectedDate ? 'selected' : ''}`;
+                col.onclick = () => { selectedDate = dateStr; renderAll(); };
+                col.innerHTML = `<div>${days[i]}</div><div class="date">${d.getDate()}</div>`;
+                calendar.appendChild(col);
+            }
         }
 
-        // PWA를 위한 서비스 워커 등록
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js');
+        // 2. 화면에 리스트 그리기
+        function renderAll() {
+            renderCalendar();
+            
+            // 먼슬리 & 위클리 그리기
+            document.getElementById('monthlyList').innerHTML = todos.monthly.map((t, i) => 
+                `<li class="todo-item ${t.done?'completed':''}" onclick="toggleTodo('monthly', ${i})">${t.text}</li>`).join('');
+                
+            document.getElementById('weeklyList').innerHTML = todos.weekly.map((t, i) => 
+                `<li class="todo-item ${t.done?'completed':''}" onclick="toggleTodo('weekly', ${i})">${t.text}</li>`).join('');
+            
+            // 데일리 그리기 (선택된 날짜 기준)
+            let dailyTodos = todos.daily[selectedDate] || [];
+            document.getElementById('dailyList').innerHTML = dailyTodos.map((t, i) => 
+                `<li class="todo-item ${t.done?'completed':''}" onclick="toggleTodo('daily', ${i})">${t.text}</li>`).join('');
         }
+
+        // 3. 할 일 추가하기 (+ 버튼 누를 때)
+        function addTodo(type) {
+            let text = prompt("새로운 할 일을 입력하세요:");
+            if(!text) return;
+
+            if(type === 'daily') {
+                if(!todos.daily[selectedDate]) todos.daily[selectedDate] = [];
+                todos.daily[selectedDate].push({ text: text, done: false });
+            } else {
+                todos[type].push({ text: text, done: false });
+            }
+            saveAndRender();
+        }
+
+        // 4. 할 일 완료 표시하기 (클릭 시)
+        function toggleTodo(type, index) {
+            if(type === 'daily') {
+                todos.daily[selectedDate][index].done = !todos.daily[selectedDate][index].done;
+            } else {
+                todos[type][index].done = !todos[type][index].done;
+            }
+            saveAndRender();
+        }
+
+        function saveAndRender() {
+            localStorage.setItem('myTodos', JSON.stringify(todos));
+            renderAll();
+        }
+
+        // 처음 실행 시 화면 그리기
+        renderAll();
     </script>
 </body>
 </html>
